@@ -1,0 +1,155 @@
+import os
+import time
+import pandas as pd
+from sqlalchemy import create_engine, text
+
+FOLDER_TO_WATCH = r"C:\Users\MyBook Hype AMD\Documents\Analyst\2025 JKTNTA\Raw"
+TABLE_NAME = "jktnta_testing1"
+DB_USER = "postgres"
+DB_PASSWORD = "Jikopipo91"
+DB_HOST = "localhost"
+DB_PORT = "2809"
+DB_NAME = "JKTNTA"
+
+imported_files = set(os.listdir(FOLDER_TO_WATCH))
+engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+
+print("🚀 CSV Auto-Importer started. Watching folder:", FOLDER_TO_WATCH)
+
+while True:
+    try:
+        for filename in os.listdir(FOLDER_TO_WATCH):
+            if filename.endswith(".csv") and filename not in imported_files:
+                file_path = os.path.join(FOLDER_TO_WATCH, filename)
+                print(f"📅 Importing {filename}...")
+
+                df = pd.read_csv(file_path)
+
+                with engine.connect() as conn:
+                    # Drop and import fresh testing1 table
+                    conn.execute(text(f'DROP TABLE IF EXISTS "{TABLE_NAME}"'))
+                df.to_sql(TABLE_NAME, con=engine, if_exists='replace', index=False)
+                print(f"✅ Imported: {filename}")
+
+                with engine.connect() as conn:
+                    # INSERT INTO testing2
+                    conn.execute(text("""
+                        INSERT INTO jktnta_testing2
+                        SELECT data_type, travel_agent, region, code_type, agen_no, "Date", pax, usd
+                        FROM jktnta_testing1;
+                    """))
+
+                    # DELETE unwanted rows
+                    conn.execute(text("""
+                        DELETE FROM jktnta_testing2
+                        WHERE agen_no IN ('0', '1005756');
+
+                        DELETE FROM jktnta_testing2
+                        WHERE travel_agent IN (
+                            'GA HANDLING EC - OPA',
+                            'Other Airline Agent',
+                            'CENGKARENG'
+                        );
+                    """))
+
+                    # UPDATE travel_agent names
+                    conn.execute(text("""
+                        UPDATE jktnta_testing2
+                        SET travel_agent = CASE
+                            WHEN travel_agent LIKE 'CAHAYA BERSAMA TOUR & TRAVEL' THEN 'TRAVEL CENTRE'
+                            WHEN travel_agent LIKE 'CHAN BROTHERS TRAVEL' THEN 'PANORAMA JTB'
+                            WHEN travel_agent LIKE '%PANORAMA%' THEN 'PANORAMA JTB'
+                            WHEN travel_agent LIKE '%FLYING VENES PERSADA%' THEN 'TRAVEL MART'
+                            WHEN travel_agent LIKE 'HOLIA TOUR' THEN 'MNC TRAVEL'
+                            WHEN travel_agent LIKE 'ROTAMA TOUR' THEN 'WITA ROTAMA'
+                            WHEN travel_agent LIKE 'WITA TOUR' THEN 'WITA ROTAMA'
+                            WHEN travel_agent LIKE 'WISATA DEWA TOUR' THEN 'WITA ROTAMA'
+                            WHEN travel_agent LIKE '%HARUM INDAH SARI%' THEN 'HIS TRAVEL'
+                            WHEN travel_agent LIKE '%NUSANTARA%' OR travel_agent LIKE '%NUSANTRA%' THEN 'DWI DAYA'
+                            WHEN travel_agent LIKE '%OBAJA%' THEN 'OBAJA TOUR & TRAVEL'
+                            WHEN travel_agent LIKE '%GOLDEN RAMA%' THEN 'GOLDEN RAMA'
+                            WHEN travel_agent LIKE '%VOLTRAS%' THEN 'VOLTRAS TRAVEL'
+                            WHEN travel_agent LIKE '%BAYU BUANA%' THEN 'BAYU BUANA'
+                            WHEN travel_agent LIKE 'ALPINO TRAVEL' THEN 'ALPINO MUSI'
+                            WHEN travel_agent LIKE 'AVODAH TOUR TRAVEL' THEN 'PT AVODAH HARVEST INTERNATIONAL'
+                            WHEN travel_agent LIKE 'BIDY TANDT' THEN 'BIDI TOURS'
+                            WHEN travel_agent LIKE 'BUMI NATA WISATA TOURS' THEN 'BUMI NATA WISATA'
+                            WHEN travel_agent LIKE 'CARNAVAL HOLIDAY TOUR' THEN 'PT. CARNAVAL HOLIDAY'
+                            WHEN travel_agent LIKE 'DWI DAYA WORLDWIDE' THEN 'DWI DAYA'
+                            WHEN travel_agent LIKE 'EVER PROMPT' THEN 'EVER PROMPT TRAVEL'
+                            WHEN travel_agent LIKE 'JATRA IDOLA' THEN 'JATRA IDOLA TOUR'
+                            WHEN travel_agent LIKE 'KAISA ROSSIE' THEN 'KAISSA ROSSIE'
+                            WHEN travel_agent LIKE 'MAJU IKA JAYA' THEN 'MAJU IKA JAYA TOUR'
+                            WHEN travel_agent LIKE 'MURNI TOUR & TRAVEL' THEN 'MURNI TOUR'
+                            WHEN travel_agent LIKE 'OMEGA TOURS & TRAVEL' THEN 'PT OMEGA TOUR&TRAVEL'
+                            WHEN travel_agent LIKE 'PACTO TRAVEL' THEN 'PACTO LIMITED'
+                            WHEN travel_agent LIKE 'PRIMA VIJAYA INDAH' THEN 'PRIMA VIJAYA IND'
+                            WHEN travel_agent LIKE 'PRIMA VIJAYA TOUR' THEN 'PRIMA VIJAYA IND'
+                            WHEN travel_agent LIKE 'PRIME TRAVELINDO / RASA WISATA' THEN 'PRIME TRAVELINDO'
+                            WHEN travel_agent LIKE 'PT ANGGREK WISATA INDONESIA' THEN 'ANGGREK WISATA INDONESIA TRAVE'
+                            WHEN travel_agent LIKE 'PT ANGKASA TOUR & TRAVEL' THEN 'PT. ANGKASA TOUR & TRAVEL'
+                            WHEN travel_agent LIKE 'PT ANGKASA TRAVEL INTERNATIONAL' THEN 'ANGKASA INTERNATIONAL'
+                            WHEN travel_agent LIKE 'PT CENDANA TOUR & TRAVEL' THEN 'CENDANA'
+                            WHEN travel_agent LIKE 'PT DEWI AGUNG MULIA' THEN 'DEWI AGUNG MULIA'
+                            WHEN travel_agent LIKE 'PT GARNIS TOUR AND TRAVEL' THEN 'GARNIS TOUR AND TRA'
+                            WHEN travel_agent LIKE 'PT GARUDA ABADI/TA: GARDI TOUR' THEN 'GARDI TOUR'
+                            WHEN travel_agent LIKE 'PT JASA GLOBAL WISATA' THEN 'JGW TRAVEL'
+                            WHEN travel_agent LIKE 'PT JEJAK IMANI BERKAH BERSAMA' THEN 'JEJAK IMANI BERKAH BERSAMA'
+                            WHEN travel_agent LIKE 'PT KINGSINDO TRAVEL PERKASA' THEN 'KINGS TRAVEL'
+                            WHEN travel_agent LIKE 'PT LICIA KEUMALA CEMERLANG' THEN 'LICIA KEUMALA CEMERLANG TOUR & TRAVEL'
+                            WHEN travel_agent LIKE 'PT MANARA TABA INDONESIA' THEN 'MANARA TABA INDONES'
+                            WHEN travel_agent LIKE 'PT PANJI MAS WISATA' THEN 'PANJI MAS WISATA'
+                            WHEN travel_agent LIKE 'PT PRICE SMART TOUR & TRAVEL' THEN 'PRICE SMART TOUR & TRAVEL'
+                            WHEN travel_agent LIKE 'PT SATGURU TRAVEL AND TOURS' THEN 'SATGURU TRAVEL & TOURS'
+                            WHEN travel_agent LIKE 'PT SHAFIRA TOUR & TRAVEL' THEN 'SHAFIRA TOUR & TRAVEL'
+                            WHEN travel_agent LIKE 'PT TOTOGASONO SEKAWAN' THEN 'PT. TOTOGASONO SEKAWAN'
+                            WHEN travel_agent LIKE 'PT TYARA BERLIANI WISATA' THEN 'TYARA HOLIDAY'
+                            WHEN travel_agent LIKE 'PT YATITA TOURS INDONESIA' THEN 'YATITA TOURS INDONESIA'
+                            WHEN travel_agent LIKE 'PT.KANA TOUR & TRAVEL' THEN 'PT KANA TOUR & TRAVEL'
+                            WHEN travel_agent LIKE 'PT.PACTO LIMITED' THEN 'PACTO LIMITED'
+                            WHEN travel_agent LIKE 'PURI ASTINA PUTRA' THEN 'PT.PURI ASTINA PUTRA'
+                            WHEN travel_agent LIKE 'RAYA UTAMA TRAVEL' THEN 'PT.RAYA UTAMA TRAVEL'
+                            WHEN travel_agent LIKE 'SUMAN TOUR' THEN 'SUMANINDO TOUR'
+                            WHEN travel_agent LIKE 'SUMANINDO' THEN 'SUMANINDO TOUR'
+                            WHEN travel_agent LIKE 'SUMANINDO GRAHAWISATA' THEN 'SUMANINDO TOUR'
+                            WHEN travel_agent LIKE 'TIOLAMHOT TRAVELGO GLOBAL' THEN 'PT TIOLAMHOT TRAVELGO GLOBAL TOURS & TRAVEL'
+                            WHEN travel_agent LIKE 'TOTOGASONO SEKAWAN' THEN 'PT. TOTOGASONO SEKAWAN'
+                            WHEN travel_agent LIKE 'TRANS GLOBE TRAVEL CENTRE' THEN 'TRAVEL CENTRE'
+                            WHEN travel_agent LIKE 'TX TRAVEL SURABAYA' THEN 'JAKARTA EXPRESS / TX TRAVEL'
+                            WHEN travel_agent LIKE 'WISATA JAWA INDAH' THEN 'PT WISATA JAWA INDAH'
+                            WHEN travel_agent LIKE 'WISATA MANCANEGARA NUGRAHA (WISMAN TOUR)' THEN 'WISMAN TOUR/ WISATA MANCANEGARA'
+                            WHEN travel_agent LIKE 'Dummy Agent' THEN 'SMAILING TOUR'
+                            ELSE travel_agent
+                        END;
+                    """))
+
+                    # DROP and RECREATE main table
+                    conn.execute(text("DROP TABLE IF EXISTS jktnta;"))
+
+                    conn.execute(text("""
+                        CREATE TABLE jktnta (
+                            data_type VARCHAR(20),
+                            travel_agent VARCHAR(200),
+                            region VARCHAR(5),
+                            code_type VARCHAR(5),
+                            agen_no INT,
+                            "Date" VARCHAR(20),
+                            pax INT,
+                            usd INT
+                        );
+                    """))
+
+                    # INSERT cleaned data
+                    conn.execute(text("""
+                        INSERT INTO jktnta
+                        SELECT data_type, travel_agent, region, code_type, agen_no, "Date", pax, usd
+                        FROM jktnta_testing2;
+                    """))
+
+                print("✅ All progress is completed")
+
+                imported_files.add(filename)
+        time.sleep(5)
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        time.sleep(10)
